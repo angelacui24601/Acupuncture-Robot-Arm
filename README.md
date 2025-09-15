@@ -1,1 +1,2 @@
 # Intelligent_medicine
+This research applies a multimodal deep learning technique to conduct accurate localization of hand acupoints and semantic segmentation of reflex zones. The proposed method improves the accuracy of complex acupoints recognition and lays a solid foundation for the multitasking and efficient operation of intelligent acupuncture robots.
