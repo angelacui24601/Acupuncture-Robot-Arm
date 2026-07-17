@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+.venv-1/
+
+# Local experiment outputs
+results/
+logs/
+
+# Large local datasets (do not commit)
+acuSim/
+acuSim/dataset/
+acuSim/test_imgs/
+acuSim/test_label/
+acuSim/test/
+acuSim/textures/
+acuSim_tiny_smoke/

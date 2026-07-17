@@ -47,6 +47,18 @@ class opts(object):
         # input
         self.parser.add_argument('--image_size', type=int, default=512, help='image crop size')
         self.parser.add_argument('--num_classes', type=int, default=15, help='image crop size')
+        self.parser.add_argument('--cervico_dataset_root', type=str, default='acuSim/dataset/main/dataset',
+                     help='CervicoCranial root path containing train/image and train/label folders')
+        self.parser.add_argument('--cervico_test_image_dir', type=str, default='acuSim/test_imgs',
+                     help='Fallback validation image directory for CervicoCranial')
+        self.parser.add_argument('--cervico_test_label_dir', type=str, default='acuSim/test_label',
+                     help='Fallback validation label directory for CervicoCranial')
+        self.parser.add_argument('--cervico_image_subdir', type=str, default='img_512',
+                     help='Image resolution subdirectory under split image folder, e.g. img_512')
+        self.parser.add_argument('--cervico_map_file', type=str, default='',
+                     help='Optional explicit map.txt path for CervicoCranial keypoint ordering')
+        self.parser.add_argument('--cervico_keypoints', type=str, default='',
+                     help='Comma-separated keypoint names. Empty means first 16 entries from map.txt')
 
         # train
         self.parser.add_argument('--optimizer', default='adam', choices=['sgd', 'lars', 'adam'], help='optimizer choice')
