@@ -60,6 +60,16 @@ acuSim/dataset/main/dataset/
 	- 坐标：`label[].coordinate.x`、`y`、`h`
 	- 坐标范围会被裁剪到 `[0, 1]`
 
+### 2.3 数据集获取说明
+
+当前仓库没有把完整原始数据集一并上传到 GitHub。仓库中提供的是示例数据与小规模测试数据（例如 `acuSim_tiny_smoke`），以及数据读取/标注格式说明。
+
+如果你需要完整的 AcuSim / hand / cervicocranial 数据，请在这个链接下载：
+- acuSim.zip 数据下载链接：https://datadryad.org/dataset/doi:10.5061/dryad.zs7h44jkz 
+- AcuSim 数据目录：`acuSim/dataset/main/dataset`
+- 小规模快速验证数据：`acuSim_tiny_smoke`
+
+
 ## 3. 环境安装
 
 ### 3.1 克隆仓库
