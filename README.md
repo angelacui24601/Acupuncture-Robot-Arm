@@ -184,8 +184,6 @@ python src/tools/summarize_results.py --results_dir ../results/acupointmm/<exp_i
 
 Zheng, Y., Liao, C., Zhang, H., & He, Q. (2025). Simultaneous Multimodal Detection of Hand Acupoints and Reflex Zones for Acupuncture Robots.
 
-## 8. 企业交付模板（中文）
-
-如果你要向公司评审“图像是否可用于针灸场景”，可直接使用以下模板：
+## 8. 交付模板
 
 - [docs/technical_deliverable_cn.md](docs/technical_deliverable_cn.md)
