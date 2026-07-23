@@ -8,13 +8,15 @@ import torch.nn as nn
 import os
 from .network.Compary.hrnet import HRnet
 from .acupointMM import AcupointMM
+from .baseline_cnn import BaselineCNN
 _network_factory = {
     'acupointmm': AcupointMM,
+    'baseline_cnn': BaselineCNN,
 }
 
 
 def create_model(opt=None):
-    # QuadT = QuadTree(min_patch_size=16, max_patch_size=64, num_patches=100, num_scales=3, opt=opt),
+    # QuadT = QuadTree(min_patch_size=16, max_patch_size=64, num_patches=100, num_scales=3, opt=opt)
     Model_List = _network_factory[opt.arch](opt)
 
     return Model_List

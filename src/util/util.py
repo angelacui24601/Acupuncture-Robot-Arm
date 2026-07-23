@@ -1,5 +1,5 @@
 class AverageMeter:
-    """Computes and stores the average and current value"""
+    """记录并更新当前值与平均值。"""
     def __init__(self):
         self.reset()
 

@@ -3,3 +3,11 @@ torchvision
 termcolor
 pillow
 tqdm
+scipy
+matplotlib
+scikit-learn
+scikit-image
+torchmetrics
+thop
+opencv-python
+einops

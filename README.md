@@ -1,52 +1,191 @@
-# Simultaneous Multimodal Detection of Hand Acupoints and Reflex Zones for Acupuncture Robots
-This project is the official code implementation of the paper 《Simultaneous Multimodal Detection of Hand Acupoints and Reflex Zones for Acupuncture Robots》. This warehouse provides the complete implementation of the MIMO-HAR framework, which is a novel multimodal and multi-task deep learning framework designed for intelligent acupuncture robots.
+# AcupointMMNet_Hand 项目说明
 
-## 1. Model framework
-The MIMO-HAR framework is based on the Transformer architecture and consists of four key modules: ViT image encoder, prior acupoint input module, Class-Wise Mask Decoder and Class-Wise Point Decoder.
-![image.png](https://raw.gitcode.com/user-images/assets/7559531/2eda9321-8846-40ed-8901-32bdea0c731c/image.png 'image.png')
+本项目用于针灸机器人场景下的多任务检测。
+模型同时学习两类目标：
 
-## 2 Dataset
+- 关键点回归（穴位坐标）
+- 分割任务（反射区/区域语义）
 
-### 2.1 Basic Image Dataset
+当前仓库包含训练脚本、测试脚本、模型定义、数据读取代码，以及示例数据目录。
 
-We used the publicly available "11k Hands" dataset as the base image source. This dataset contains 11,076 hand images from 190 subjects.
-Open access: you can be found at https://github.com/mahmoudnafifi/11K-Hands.
+## 1. 项目结构
 
-### 2.2 MIMO-HAR Dataset
+下面是最常用目录的作用说明：
 
-Note: The "11k Hands" dataset was originally used for gender identification and biometric recognition and does not include the labeling of acupoints or reflex zones. One of the core contributions of this project is the creation of a brand-new, high-quality expert annotation set. We selected 1,000 images from the "11k Hands" dataset and manually annotated them using the Labelme tool by a team led by senior traditional Chinese medicine experts.
+- `train.py`：训练入口。
+- `test.py`：可视化测试入口。
+- `opts.py`：命令行参数定义。
+- `src/engine/`：训练/评估/可视化共用的运行时与流程编排。
+- `src/model/`：模型结构和损失函数。
+- `src/dataset/`：数据集工厂和数据读取。
+- `src/tools/`：结果汇总与离线辅助脚本。
+- `acuSim/`：AcuSim 数据与数据处理脚本。
+- `acuSim_tiny_smoke/`：小规模烟雾测试数据，可快速验证流程。
 
-Quality control: The annotation process underwent a strict consistency assessment. The average Dice coefficient of the reflex zone was 0.89, and the average normalized coordinate distance of the acupoints was 0.04, ensuring a high degree of consistency among annotators.
+## 2. 数据集与格式
 
-### 2.3 Data Request
+本项目支持以下数据集标识：
 
-The code in this repository is designed for using our specific expert annotation format. The basic 11k Hands image dataset is public, but the new high-precision annotation files we created for 16 acupoints and 14 reflex zones are important assets of our research team and are not included in the public release.
+- `--dataset hand`
+- `--dataset cervicocranial`
+- `--dataset acusim`
 
-We welcome academic and research cooperation. If you need to obtain annotation files for academic research, please contact us. email: qh2020@jhun.edu.cn.
+注意：`opts.py` 中的默认值是 `luojiassr`，与当前代码不匹配。实际运行时必须手动传入上面的可用值。
 
-## 3 Environmental Installation
+### 2.1 AcuSim 目录要求
 
-Step 1: Clone the repository
-		
-        git clone https://gitcode.com/qq_38063965/AcupointMMNet_Hand.git
-    	cd AcupointMMNet_Hand
-        
-Step 2: Create and activate the Conda environment
+默认数据根目录为：
 
-	conda create -n acupointnet python=3.7 -y
-	conda activate acupointnet
+`acuSim/dataset/main/dataset`
 
-Step 3: Installation Dependencies
+目录结构示例：
 
-	pip install -r requirements.txt
+```text
+acuSim/dataset/main/dataset/
+├── map.txt
+├── train/
+│   ├── image/img_512/
+│   └── label/label/
+└── val/
+    ├── image/img_512/
+    └── label/label/
+```
 
-Step 4: Training and Testing
+### 2.2 标注关键点说明
 
-	sh ./train.sh
-    python test.py
-Note: Please modify the .sh script as required before running
+- 模型当前按 16 个关键点输出。
+- 如果不传 `--cervico_keypoints`，程序默认读取 `map.txt` 前 16 项。
+- JSON 中关键点字段读取规则：
+	- 名称：`label[].name`
+	- 坐标：`label[].coordinate.x`、`y`、`h`
+	- 坐标范围会被裁剪到 `[0, 1]`
 
-## 4. Cite
-If you have used this project or the MIMO-HAR framework in your research, please cite our paper:
+## 3. 环境安装
 
-Zheng, Y., Liao, C., Zhang, H., & He, Q. (2025). Simultaneous Multimodal Detection of Hand Acupoints and Reflex Zones for Acupuncture Robots. 
+### 3.1 克隆仓库
+
+```bash
+git clone https://gitcode.com/qq_38063965/AcupointMMNet_Hand.git
+cd AcupointMMNet_Hand
+```
+
+### 3.2 创建环境（推荐）
+
+```bash
+conda create -n acupointnet python=3.10 -y
+conda activate acupointnet
+```
+
+### 3.3 安装依赖
+
+先安装基础依赖：
+
+```bash
+pip install -r requirements.txt
+```
+
+再安装训练和可视化常用扩展依赖：
+
+```bash
+pip install numpy scipy opencv-python matplotlib scikit-learn scikit-image
+pip install mediapipe thop torchmetrics einops
+```
+
+## 4. 训练
+
+`train.py` 使用分布式初始化。推荐用 `torchrun` 启动，即使只用 1 张卡也这样做。
+
+### 4.1 单卡训练示例
+
+```bash
+torchrun --nproc_per_node=1 train.py \
+	--dataset acusim \
+	--exp_id exp_acusim_001 \
+	--gpus 0 \
+	--num_epochs 50 \
+	--batch_size 4 \
+	--cervico_dataset_root acuSim/dataset/main/dataset \
+	--cervico_image_subdir img_512
+```
+
+### 4.2 快速流程自检（小数据）
+
+```bash
+torchrun --nproc_per_node=1 train.py \
+	--dataset acusim \
+	--exp_id smoke_run \
+	--gpus 0 \
+	--num_epochs 2 \
+	--batch_size 2 \
+	--cervico_dataset_root acuSim_tiny_smoke \
+	--cervico_image_subdir img_512
+```
+
+### 4.3 结果保存位置
+
+训练输出保存在：
+
+`../results/acupointmm/<exp_id>/`
+
+也可以通过 `--output_root` 指定新的实验输出根目录。
+
+目录内会包含：
+
+- `config.json`：本次运行参数
+- `ckpt_epoch_*.pth`：模型权重
+- 日志文件
+
+## 5. 测试与可视化
+
+```bash
+python test.py --dataset acusim --exp_id test_vis --gpus 0 --load_model <模型权重路径>
+```
+
+说明：
+
+- `test.py` 中存在固定 GPU 与分布式初始化写法。
+- 若你的机器卡号或端口不同，请先按本地环境调整再运行。
+
+### 5.1 生成技术交付报告
+
+评估结束后，可通过下面的命令把结果汇总成一份可直接用于汇报的 Markdown 文件：
+
+```bash
+python src/tools/summarize_results.py --results_dir ../results/acupointmm/<exp_id>
+```
+
+生成结果会写入：
+
+- `../results/acupointmm/<exp_id>/summary_report.md`
+
+## 6. 常见问题
+
+### 6.1 报错 `Unsupported dataset`
+
+原因：`--dataset` 传了无效值。
+
+解决：改为 `hand`、`cervicocranial` 或 `acusim`。
+
+### 6.2 报错找不到图像或标注目录
+
+原因：`--cervico_dataset_root` 或 `--cervico_image_subdir` 不正确。
+
+解决：检查目录是否存在，确认图像与 JSON 文件名一一对应。
+
+### 6.3 报错 `exp_id null !!!`
+
+原因：未传 `--exp_id`，默认值为 `default`。
+
+解决：为每次实验设置唯一 `--exp_id`。
+
+## 7. 引用
+
+如果你在论文或项目中使用本仓库，请引用对应论文：
+
+Zheng, Y., Liao, C., Zhang, H., & He, Q. (2025). Simultaneous Multimodal Detection of Hand Acupoints and Reflex Zones for Acupuncture Robots.
+
+## 8. 企业交付模板（中文）
+
+如果你要向公司评审“图像是否可用于针灸场景”，可直接使用以下模板：
+
+- [docs/technical_deliverable_cn.md](docs/technical_deliverable_cn.md)

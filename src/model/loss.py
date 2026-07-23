@@ -48,7 +48,7 @@ def Dice_loss(inputs, target, beta=1, smooth=1e-5):
     temp_target = target.view(n, -1, ct)
 
     # --------------------------------------------#
-    #   计算dice loss
+    #   计算 Dice Loss
     # --------------------------------------------#
     tp = torch.sum(temp_target[..., :-1] * temp_inputs, axis=[0, 1])
     fp = torch.sum(temp_inputs, axis=[0, 1]) - tp
@@ -59,20 +59,20 @@ def Dice_loss(inputs, target, beta=1, smooth=1e-5):
     return dice_loss
 
 # class KeypointLoss(nn.Module):
-#     """Criterion class for computing training losses."""
+#     """关键点训练损失函数。"""
 #
 #     def __init__(self, sigmas) -> None:
-#         """Initialize the KeypointLoss class."""
+#         """初始化 KeypointLoss。"""
 #         super().__init__()
 #         self.sigmas = sigmas
 #
 #     def forward(self, pred_kpts, gt_kpts, kpt_mask, area=None):
-#         """Calculates keypoint loss factor and Euclidean distance loss for predicted and actual keypoints."""
+#         """计算关键点损失因子和欧氏距离损失。"""
 #         d = (pred_kpts[..., 0] - gt_kpts[..., 0]) ** 2 + (pred_kpts[..., 1] - gt_kpts[..., 1]) ** 2
 #         kpt_loss_factor = kpt_mask.shape[1] / (torch.sum(kpt_mask != 0, dim=1) + 1e-9)
-#         e = d / (2 * (1 * self.sigmas) ** 2 + 1e-9)  # from formula
-#         # e = d / (2 * (area * self.sigmas) ** 2 + 1e-9)  # from formula
-#         # e = d / (2 * self.sigmas) ** 2 / (area + 1e-9) / 2  # from cocoeval
+#         e = d / (2 * (1 * self.sigmas) ** 2 + 1e-9)  # 公式版本
+#         # e = d / (2 * (area * self.sigmas) ** 2 + 1e-9)  # 公式版本
+#         # e = d / (2 * self.sigmas) ** 2 / (area + 1e-9) / 2  # cocoeval 版本
 #         return (kpt_loss_factor.view(-1, 1) * ((1 - torch.exp(-e)) * kpt_mask)).mean()
 
 
@@ -90,24 +90,24 @@ class KeypointLoss(nn.Module):
 
     def forward(self, logits, label):
         '''
-        logits and label have same shape, and label data type is long
-        args:
-            logits: tensor of shape (N, ...)
-            label: tensor of shape(N, ...)
+        logits 与 label 形状相同，label 类型为 long。
+        参数：
+            logits: 形状为 (N, ...) 的张量
+            label: 形状为 (N, ...) 的张量
         '''
 
-        # compute loss
-        logits = logits.float()  # use fp32 if logits is fp16
+        # 计算损失
+        logits = logits.float()  # 若 logits 为 fp16，则转为 fp32 计算
         # 表明以下两步不用求梯度
         # 可以看出alpha不是一个值，在正样本的情况下（1）其系数为alpha
         with torch.no_grad():
             alpha = torch.empty_like(logits).fill_(1 - self.alpha)
             alpha[label == 1] = self.alpha
-        # 将输出结果归一化
+        # 将输出结果映射到概率
         probs = torch.sigmoid(logits)
         # label==1的地方用probs代替，不等于1的地方用1 - probs代替
         pt = torch.where(label == 1, probs, 1 - probs)
-        # Crit是BCEloss
+        # 基础损失为 BCEWithLogitsLoss
         ce_loss = self.crit(logits, label.float())
         loss = (alpha * torch.pow(1 - pt, self.gamma) * ce_loss)
         if self.reduction == 'mean':

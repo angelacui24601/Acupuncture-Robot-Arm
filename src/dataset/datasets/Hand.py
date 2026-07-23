@@ -25,65 +25,61 @@ from tqdm import tqdm as tqdm_original
 DATASET_CACHE_VERSION = '1.0.3'
 
 def get_hash(paths):
-    """Returns a single hash value of a list of paths (files or dirs)."""
-    size = sum(os.path.getsize(p) for p in paths if os.path.exists(p))  # sizes
-    h = hashlib.sha256(str(size).encode())  # hash sizes
-    h.update(''.join(paths).encode())  # hash paths
-    return h.hexdigest()  # return hash
+    """对一组路径（文件或目录）计算统一哈希值。"""
+    size = sum(os.path.getsize(p) for p in paths if os.path.exists(p))  # 汇总文件大小
+    h = hashlib.sha256(str(size).encode())  # 先对大小做哈希
+    h.update(''.join(paths).encode())  # 再加入路径字符串
+    return h.hexdigest()  # 返回哈希结果
 
 class TQDM(tqdm_original):
     """
-    Custom Ultralytics tqdm class with different default arguments.
+    Ultralytics 的 tqdm 封装，提供不同的默认参数。
 
     Args:
-        *args (list): Positional arguments passed to original tqdm.
-        **kwargs (dict): Keyword arguments, with custom defaults applied.
+        *args (list): 传给原始 tqdm 的位置参数。
+        **kwargs (dict): 关键字参数，会应用自定义默认值。
     """
 
     def __init__(self, *args, **kwargs):
-        VERBOSE = str(os.getenv('YOLO_VERBOSE', True)).lower() == 'true'  # global verbose mode
-        TQDM_BAR_FORMAT = '{l_bar}{bar:10}{r_bar}' if VERBOSE else None  # tqdm bar format
-        """Initialize custom Ultralytics tqdm class with different default arguments."""
-        # Set new default values (these can still be overridden when calling TQDM)
-        kwargs['disable'] = not VERBOSE or kwargs.get('disable', False)  # logical 'and' with default value if passed
-        kwargs.setdefault('bar_format', TQDM_BAR_FORMAT)  # override default value if passed
+        VERBOSE = str(os.getenv('YOLO_VERBOSE', True)).lower() == 'true'  # 全局详细输出开关
+        TQDM_BAR_FORMAT = '{l_bar}{bar:10}{r_bar}' if VERBOSE else None  # 进度条格式
+        """初始化自定义 tqdm 默认参数。"""
+        # 设置默认值（调用时仍可覆盖）
+        kwargs['disable'] = not VERBOSE or kwargs.get('disable', False)  # 若外部显式传入则优先使用外部值
+        kwargs.setdefault('bar_format', TQDM_BAR_FORMAT)  # 未传入时使用默认格式
         super().__init__(*args, **kwargs)
 
 def is_dir_writeable(dir_path):
     """
-    Check if a directory is writeable.
+    检查目录是否可写。
 
     Args:
-        dir_path (str | Path): The path to the directory.
+        dir_path (str | Path): 目录路径。
 
     Returns:
-        (bool): True if the directory is writeable, False otherwise.
+        (bool): 可写返回 True，否则返回 False。
     """
     return os.access(str(dir_path), os.W_OK)
 
 def save_dataset_cache_file(prefix, path, x):
-    """Save an Ultralytics dataset *.cache dictionary x to path."""
-    x['version'] = DATASET_CACHE_VERSION  # add cache version
+    """将数据集缓存字典 x 保存到 *.cache 文件。"""
+    x['version'] = DATASET_CACHE_VERSION  # 写入缓存版本
     if is_dir_writeable(path.parent):
         if path.exists():
-            path.unlink()  # remove *.cache file if exists
-        np.save(str(path), x)  # save cache for next time
-        path.with_suffix('.cache.npy').rename(path)  # remove .npy suffix
+            path.unlink()  # 若已存在则先删除
+        np.save(str(path), x)  # 保存缓存供下次使用
+        path.with_suffix('.cache.npy').rename(path)  # 去掉 .npy 后缀
 
 class Hand(Dataset):
     """
-    This dataset class can load unaligned/unpaired datasets.
+    手部数据集读取类。
 
-    It requires two directories to host training images from domain A '/path/to/data/trainA'
-    and from domain B '/path/to/data/trainB' respectively.
-    You can train the model with the dataset flag '--dataroot /path/to/data'.
-    Similarly, you need to prepare two directories:
-    '/path/to/data/testA' and '/path/to/data/testB' during test time.
+    该类可加载本项目定义的图像、分割标签和关键点标签。
     """
 
     def __init__(self, phase, transform=None, opt=None):
         self.dir_dataset = '/data/Hand_dataset/dataset'
-        # Determenistic "random" shuffle of the maps:
+        # 设定固定随机种子，保证可复现
         np.random.seed(42)
         self.phase = phase
         # self.imgdir = os.path.join(self.dir_dataset, 'img256_' + phase + '_new')
@@ -116,16 +112,17 @@ class Hand(Dataset):
                                   )
 
     def __getitem__(self, index):
-        """Return a data point and its metadata information.
+        """返回单条样本及其标签。
 
         Parameters:
-            index (int)      -- a random integer for data indexing
+            index (int): 样本索引。
 
-        Returns a dictionary that contains A, B, A_paths and B_paths
-            A (tensor)       -- an image in the input domain
-            B (tensor)       -- its corresponding image in the target domain
-            A_paths (str)    -- image paths
-            B_paths (str)    -- image paths
+        Returns:
+            img: 输入图像张量。
+            acupoint: 先验关键点。
+            segm: 分割标签。
+            seg_labels: one-hot 分割标签。
+            keypoint_labels: 关键点真值。
         """
 
         img_path = self.imglist[index]
@@ -168,11 +165,7 @@ class Hand(Dataset):
         return img, acupoint, segm, seg_labels, keypoint_labels
 
     def __len__(self):
-        """Return the total number of images in the dataset.
-
-        As we have two datasets with potentially different number of images,
-        we take a maximum of
-        """
+        """返回数据集样本总数。"""
         return len(self.imglist)
 
     def get_Key_point_prior_knowledge(self, img_path, keypoint_labels):

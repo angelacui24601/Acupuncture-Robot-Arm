@@ -19,7 +19,7 @@ from einops.layers.torch import Rearrange
 
 class PositionEmbeddingRandom(nn.Module):
     """
-    Positional encoding using random spatial frequencies.
+    使用随机空间频率的位置编码。
     """
 
     def __init__(self, num_pos_feats: int = 64, scale: Optional[float] = None) -> None:
@@ -32,16 +32,16 @@ class PositionEmbeddingRandom(nn.Module):
         )
 
     def _pe_encoding(self, coords: torch.Tensor) -> torch.Tensor:
-        """Positionally encode points that are normalized to [0,1]."""
-        # assuming coords are in [0, 1]^2 square and have d_1 x ... x d_n x 2 shape
+        """对归一化到 [0,1] 的点进行位置编码。"""
+        # 假设 coords 位于 [0,1]^2，形状为 d_1 x ... x d_n x 2
         coords = 2 * coords - 1
         coords = coords @ self.positional_encoding_gaussian_matrix
         coords = 2 * np.pi * coords
-        # outputs d_1 x ... x d_n x C shape
+        # 输出形状为 d_1 x ... x d_n x C
         return torch.cat([torch.sin(coords), torch.cos(coords)], dim=-1)
 
     def forward(self, size: int) -> torch.Tensor:
-        """Generate positional encoding for a grid of the specified size."""
+        """为指定大小网格生成位置编码。"""
         h, w = size, size
         device: Any = self.positional_encoding_gaussian_matrix.device
         grid = torch.ones((h, w), device=device, dtype=torch.float32)
@@ -67,6 +67,7 @@ class AcupointMM(nn.Module):
         self.out_chans = opts.out_chans
 
         self.prompt_embed_dim = opts.prompt_embed_dim
+        self.ablate_no_prompt = bool(getattr(opts, "ablate_no_prompt", False))
 
         self.shared_mlp = nn.Linear(self.embed_dim // 32, self.embed_dim)
         for i in range(self.depth):
@@ -139,13 +140,13 @@ class AcupointMM(nn.Module):
         )
         keypoint_features = features[:, 0, :]
 
-        # Embed prompts
+        # 构造提示嵌入
         sparse_embeddings = torch.empty((bs, 0, self.prompt_embed_dim)).cuda(non_blocking=True)
         dense_embeddings = self.no_mask_embed.weight.reshape(1, -1, 1, 1).expand(
             bs, -1, self.image_embedding_size, self.image_embedding_size
         )
 
-        # Predict masks
+        # 预测分割掩码
         low_res_masks, iou_predictions = self.mask_decoder(
             image_embeddings=segm_features,
             image_pe=self.get_dense_pe(),
@@ -154,7 +155,7 @@ class AcupointMM(nn.Module):
             multimask_output=False,
         )
 
-        # Upscale the masks to the original image resolution
+        # 将低分辨率掩码上采样到输入分辨率
         masks = self.postprocess_masks(low_res_masks, self.image_size, self.image_size)
         points = self.keypoint_head(keypoint_features).view(bs_ac, n_ac, c_ac)
 
@@ -163,6 +164,12 @@ class AcupointMM(nn.Module):
 
     def get_prompt(self, x):
         B, N, C = x.shape
+        if self.ablate_no_prompt:
+            return [
+                torch.zeros((B, self.embed_dim), device=x.device, dtype=x.dtype)
+                for _ in range(self.depth)
+            ]
+
         handcrafted_feature = x.view(B, N * C)
         prompts = []
         for i in range(self.depth):
@@ -173,12 +180,12 @@ class AcupointMM(nn.Module):
 
     def get_dense_pe(self) -> torch.Tensor:
         """
-        Returns the positional encoding used to encode point prompts,
-        applied to a dense set of points the shape of the image encoding.
+                返回用于点提示编码的稠密位置编码。
+                其空间尺寸与图像编码一致。
 
         Returns:
-          torch.Tensor: Positional encoding with shape
-            1x(embed_dim)x(embedding_h)x(embedding_w)
+                    torch.Tensor: 形状为
+                        1x(embed_dim)x(embedding_h)x(embedding_w)
         """
         return self.pe_layer(self.image_embedding_size).unsqueeze(0)
 
@@ -189,19 +196,18 @@ class AcupointMM(nn.Module):
         original_size: Tuple[int, ...],
     ) -> torch.Tensor:
         """
-        Remove padding and upscale masks to the original image size.
+                去除填充并将掩码上采样到目标图像尺寸。
 
         Arguments:
-          masks (torch.Tensor): Batched masks from the mask_decoder,
-            in BxCxHxW format.
-          input_size (tuple(int, int)): The size of the image input to the
-            model, in (H, W) format. Used to remove padding.
-          original_size (tuple(int, int)): The original size of the image
-            before resizing for input to the model, in (H, W) format.
+                    masks (torch.Tensor): 来自 mask_decoder 的批量掩码，
+                        形状为 BxCxHxW。
+                    input_size (tuple(int, int)): 模型输入尺寸 (H, W)，
+                        用于裁剪填充区域。
+                    original_size (tuple(int, int)): 原始图像尺寸 (H, W)。
 
         Returns:
-          (torch.Tensor): Batched masks in BxCxHxW format, where (H, W)
-            is given by original_size.
+                    (torch.Tensor): 批量掩码，形状为 BxCxHxW，
+                        其中 (H, W) 为 original_size。
         """
         masks = masks[:,0,:,:]
         masks = F.interpolate(

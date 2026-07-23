@@ -10,7 +10,7 @@ from ..utils import preprocess_input
 
 
 class CervicoCranial(Dataset):
-    """AcuSim/CervicoCranial dataset adapter with Hand-compatible outputs."""
+    """AcuSim/CervicoCranial 数据集适配器，输出格式与 Hand 数据集一致。"""
 
     def __init__(self, phase, transform=None, opt=None):
         self.phase = phase
@@ -120,7 +120,7 @@ class CervicoCranial(Dataset):
         if samples:
             return samples, True
 
-        # No reliable filename match between images and labels in this split.
+        # 当前划分中图像与标注文件名无法可靠匹配。
         return [], False
 
     def __len__(self):
